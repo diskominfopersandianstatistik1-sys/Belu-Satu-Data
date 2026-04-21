@@ -1,41 +1,70 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Dashboard Statistik Sektoral</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body style="background: transparent; color: white;">
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-  <h3>Jumlah UMKM per Tahun</h3>
-  <canvas id="myChart" width="400" height="200"></canvas>
+st.set_page_config(page_title="Dashboard Statistik Sektoral", layout="wide")
 
-  <script>
-    const data = {
-      labels: ['2021', '2022', '2023', '2024'],
-      datasets: [{
-        label: 'Jumlah UMKM',
-        data: [500, 620, 668, 720],
-        borderWidth: 2
-      }]
-    };
+st.title("📊 Dashboard Statistik Sektoral")
+st.write("Analisis data sektoral dari OPD")
 
-    const config = {
-      type: 'line',
-      data: data,
-      options: {
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        }
-      }
-    };
+# Upload file
+uploaded_file = st.file_uploader("Upload dataset (CSV/Excel)", type=["csv", "xlsx"])
 
-    new Chart(
-      document.getElementById('myChart'),
-      config
-    );
-  </script>
+if uploaded_file:
+    # Baca data
+    if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
 
-</body>
-</html>
+    st.subheader("📄 Data Preview")
+    st.dataframe(df)
+
+    # Pilih kolom
+    st.sidebar.header("🔍 Filter Data")
+
+    kolom = df.columns.tolist()
+
+    col_tahun = st.sidebar.selectbox("Pilih Kolom Tahun", kolom)
+    col_indikator = st.sidebar.selectbox("Pilih Kolom Indikator", kolom)
+    col_nilai = st.sidebar.selectbox("Pilih Kolom Nilai", kolom)
+
+    # Filter tahun
+    tahun_unik = df[col_tahun].unique()
+    tahun_pilih = st.sidebar.multiselect("Filter Tahun", tahun_unik, default=tahun_unik)
+
+    df_filter = df[df[col_tahun].isin(tahun_pilih)]
+
+    st.subheader("📊 Statistik Ringkas")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Total Data", len(df_filter))
+    col2.metric("Rata-rata", round(df_filter[col_nilai].mean(), 2))
+    col3.metric("Nilai Maksimum", df_filter[col_nilai].max())
+
+    # Grafik
+    st.subheader("📈 Visualisasi Data")
+
+    fig, ax = plt.subplots()
+
+    sns.lineplot(
+        data=df_filter,
+        x=col_tahun,
+        y=col_nilai,
+        hue=col_indikator,
+        marker="o",
+        ax=ax
+    )
+
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+
+    # Download hasil
+    st.subheader("⬇️ Download Data")
+    csv = df_filter.to_csv(index=False).encode('utf-8')
+    st.download_button("Download CSV", csv, "data_filtered.csv", "text/csv")
+
+else:
+    st.info("Silakan upload dataset terlebih dahulu.")
